@@ -1,0 +1,91 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  MEMBER
+}
+
+enum AccessOutcome {
+  SUCCESS
+  NOT_FOUND
+  MALFORMED
+  INVALID_SECRET
+  EXPIRED
+  REVOKED
+  TEAM_INACTIVE
+  ROLE_INSUFFICIENT
+}
+
+model Team {
+  id       String  @id @default(uuid())
+  name     String
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users       User[]
+  credentials Credential[]
+}
+
+model User {
+  id           String @id @default(uuid())
+  email        String @unique
+  passwordHash String
+
+  role   Role
+  team   Team   @relation(fields: [teamId], references: [id])
+  teamId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  credentials Credential[]
+}
+
+model Credential {
+  id             String    @id @default(uuid())
+  publicId       String    @unique
+  secretHash     String    @unique
+  name           String
+  scope          Role
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  idempotencyKey String?
+
+  team   Team   @relation(fields: [teamId], references: [id])
+  teamId String
+
+  createdBy   User   @relation(fields: [createdById], references: [id])
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accessEvents AccessEvent[]
+
+  @@unique([teamId, name])
+  @@unique([teamId, idempotencyKey])
+}
+
+model AccessEvent {
+  id String @id @default(uuid())
+
+  credential   Credential? @relation(fields: [credentialId], references: [id])
+  credentialId String?
+
+  attemptedPublicId String
+  outcome           AccessOutcome
+  occurredAt        DateTime      @default(now())
+}
