@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*.local
+*.log
+*.tsbuildinfo
+.vscode/
+.idea/
+.DS_Store
+
+# Local planning/instruction docs — not for the public repo
+/CLAUDE.md
+/direction.md
+/nestjs-mastery.md
+/business-logic.md
