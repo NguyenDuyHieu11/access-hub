@@ -10,6 +10,7 @@ datasource db {
   provider = "postgresql"
 }
 
+// neu nho khong nham thi auto increment int
 enum Role {
   OWNER
   MANAGER
