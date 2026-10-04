@@ -8,6 +8,7 @@ coverage/
 .vscode/
 .idea/
 .DS_Store
+/access-hub/src/generated/
 
 # Local planning/instruction docs — not for the public repo
 /CLAUDE.md
