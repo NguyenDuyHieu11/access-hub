@@ -18,7 +18,10 @@ import { ResourceRoleGuard } from '../common/guards/resource-role.guard.js';
 import type { Resource, ResourceMember } from '../generated/prisma/client.js';
 import { CreateResourceDto } from './dto/create-resource.dto.js';
 import { UpdateResourceDto } from './dto/update-resource.dto.js';
-import { ResourcesService, type ResourceWithRole } from './resources.service.js';
+import {
+  ResourcesService,
+  type ResourceWithRole,
+} from './resources.service.js';
 
 @Controller('resources')
 export class ResourcesController {

@@ -1,5 +1,13 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, type MemberRole, type Resource } from '../generated/prisma/client.js';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  Prisma,
+  type MemberRole,
+  type Resource,
+} from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateResourceDto } from './dto/create-resource.dto.js';
 import { UpdateResourceDto } from './dto/update-resource.dto.js';
@@ -7,7 +15,10 @@ import { UpdateResourceDto } from './dto/update-resource.dto.js';
 export type ResourceWithRole = Resource & { role: MemberRole };
 
 function isUniqueViolation(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  );
 }
 
 @Injectable()
@@ -24,7 +35,8 @@ export class ResourcesService {
         },
       });
     } catch (error) {
-      if (isUniqueViolation(error)) throw new ConflictException('Slug is already taken');
+      if (isUniqueViolation(error))
+        throw new ConflictException('Slug is already taken');
       throw error;
     }
   }
@@ -39,7 +51,9 @@ export class ResourcesService {
   }
 
   async findOne(resourceId: string): Promise<Resource> {
-    const resource = await this.prisma.resource.findUnique({ where: { id: resourceId } });
+    const resource = await this.prisma.resource.findUnique({
+      where: { id: resourceId },
+    });
     if (!resource) throw new NotFoundException('Resource not found');
     return resource;
   }
@@ -51,7 +65,8 @@ export class ResourcesService {
         data: dto,
       });
     } catch (error) {
-      if (isUniqueViolation(error)) throw new ConflictException('Slug is already taken');
+      if (isUniqueViolation(error))
+        throw new ConflictException('Slug is already taken');
       throw error;
     }
   }
