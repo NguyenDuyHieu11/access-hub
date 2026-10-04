@@ -35,16 +35,12 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
-    // The token only proves who the caller claims to be. Role and team
-    // status are always re-read live here, never trusted from the token
-    // itself, so a demotion or a deactivated team takes effect immediately.
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-      include: { team: true },
-    });
-    if (!user || !user.team.isActive) throw new UnauthorizedException();
+    // The token only proves who the caller claims to be; re-read the user
+    // live so a deleted account is rejected immediately.
+    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user) throw new UnauthorizedException();
 
-    req.user = { id: user.id, email: user.email, role: user.role, teamId: user.teamId };
+    req.user = { id: user.id, email: user.email };
     return true;
   }
 }

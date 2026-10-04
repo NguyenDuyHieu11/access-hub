@@ -20,16 +20,8 @@ export class AuthService {
 
     let user: User;
     try {
-      user = await this.prisma.$transaction(async (tx) => {
-        const team = await tx.team.create({ data: { name: dto.teamName } });
-        return tx.user.create({
-          data: {
-            email: dto.email,
-            passwordHash,
-            role: 'OWNER',
-            teamId: team.id,
-          },
-        });
+      user = await this.prisma.user.create({
+        data: { email: dto.email, passwordHash },
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -42,14 +34,11 @@ export class AuthService {
   }
 
   async login(dto: SignInDto): Promise<{ access_token: string }> {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-      include: { team: true },
-    });
+    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
 
     const invalidCredentials = () => new UnauthorizedException('Invalid credentials');
 
-    if (!user || !user.team.isActive) {
+    if (!user) {
       throw invalidCredentials();
     }
 

@@ -10,11 +10,14 @@ datasource db {
   provider = "postgresql"
 }
 
-// neu nho khong nham thi auto increment int
-enum Role {
+enum MemberRole {
   OWNER
-  MANAGER
   MEMBER
+}
+
+enum CredentialScope {
+  READ
+  READ_WRITE
 }
 
 enum AccessOutcome {
@@ -24,20 +27,7 @@ enum AccessOutcome {
   INVALID_SECRET
   EXPIRED
   REVOKED
-  TEAM_INACTIVE
   ROLE_INSUFFICIENT
-}
-
-model Team {
-  id       String  @id @default(uuid())
-  name     String
-  isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  users       User[]
-  credentials Credential[]
 }
 
 model User {
@@ -45,28 +35,53 @@ model User {
   email        String @unique
   passwordHash String
 
-  role   Role
-  team   Team   @relation(fields: [teamId], references: [id])
-  teamId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships ResourceMember[]
+  credentials Credential[]
+}
+
+model Resource {
+  id   String @id @default(uuid())
+  name String
+  slug String @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  members     ResourceMember[]
   credentials Credential[]
 }
 
+model ResourceMember {
+  id   String     @id @default(uuid())
+  role MemberRole
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  resourceId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, resourceId])
+}
+
 model Credential {
-  id             String    @id @default(uuid())
-  publicId       String    @unique
-  secretHash     String    @unique
+  id             String          @id @default(uuid())
+  publicId       String          @unique
+  secretHash     String          @unique
   name           String
-  scope          Role
+  scope          CredentialScope
   expiresAt      DateTime
   revokedAt      DateTime?
   idempotencyKey String?
 
-  team   Team   @relation(fields: [teamId], references: [id])
-  teamId String
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  resourceId String
 
   createdBy   User   @relation(fields: [createdById], references: [id])
   createdById String
@@ -76,14 +91,14 @@ model Credential {
 
   accessEvents AccessEvent[]
 
-  @@unique([teamId, name])
-  @@unique([teamId, idempotencyKey])
+  @@unique([resourceId, name])
+  @@unique([resourceId, idempotencyKey])
 }
 
 model AccessEvent {
   id String @id @default(uuid())
 
-  credential   Credential? @relation(fields: [credentialId], references: [id])
+  credential   Credential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
   credentialId String?
 
   attemptedPublicId String
