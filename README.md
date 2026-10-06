@@ -29,6 +29,18 @@ A normal day looks like this:
 6. Alice looks at the changes (the diff) and approves. The server merges Bob's branch into main for real. Or she rejects it.
 7. Every time a credential is used, successfully or not, Access Hub records it. If a credential leaks, an Owner can revoke it and it stops working immediately.
 
+Commands supported once the plan is done: only commands that talk to the server matter. Local commands like commit, branch, merge and log never reach us.
+
+Command	Credential needed	Notes
+git clone	READ or READ_WRITE	
+git fetch / git pull	READ or READ_WRITE	
+git ls-remote	READ or READ_WRITE	Lists the server's branches
+git push (new or existing branch)	READ_WRITE	Main is limited to Owners
+git push --force	READ_WRITE	Main is limited to Owners
+git push --delete (delete a branch)	READ_WRITE	Main is limited to Owners
+git push of tags	READ_WRITE	The hook only protects the default branch, so any member with write can push tags
+Merging into main is not a git command the user runs. It happens on the server when an Owner approves a contribution through our REST API.
+
 ## The main rule behind everything
 
 **Permission is always checked live, at the moment of the request.** Nothing is trusted because it was true earlier. A role, a membership or a credential's state is read from the database every time. This one rule handles several of the hardest edge cases: the zombie key (7), the demoted employee (11) and the revoke race (9).
