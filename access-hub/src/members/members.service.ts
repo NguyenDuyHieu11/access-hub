@@ -10,6 +10,8 @@ import {
 } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AddMemberDTO } from './dto/add-member-dto.js';
+import { ASYNC_METHOD_SUFFIX } from '@nestjs/common/module-utils/constants.js';
+import { CurrentMembership } from '../common/decorators/current-membership.decorator.js';
 
 export type MemberView = {
   userId: string;
@@ -79,24 +81,88 @@ export class MembersService {
     }
   }
 
-  async updateRole(
-    resourceId: string,
-    userId: string,
-    role: MemberRole,
-  ): Promise<MemberView> {
+  // async updateRole(
+  //   resourceId: string,
+  //   userId: string,
+  //   role: MemberRole,
+  // ): Promise<MemberView> {
+  //   return this.prisma.$transaction(async (tx) => {
+  //     const member = await this.lockAndFind(tx, resourceId, userId);
+  //     if (member.role === 'OWNER' && role !== 'OWNER') {
+  //       await this.assertNotLastOwner(tx, resourceId);
+  //     }
+
+  //     const updated = await tx.resourceMember.update({
+  //       where: { id: member.id },
+  //       data: { role },
+  //       include: WITH_EMAIL,
+  //     });
+  //     return toView(updated);
+  //   });
+  // }
+
+  async promote(resourceId: string, userId: string): Promise<MemberView> {
     return this.prisma.$transaction(async (tx) => {
       const member = await this.lockAndFind(tx, resourceId, userId);
-      if (member.role === 'OWNER' && role !== 'OWNER') {
-        await this.assertNotLastOwner(tx, resourceId);
+
+      if (member.role == 'OWNER') {
+        const current = await tx.resourceMember.findFirstOrThrow({
+          where: {
+            id: member.id,
+          },
+          include: WITH_EMAIL,
+        });
+        return toView(current)
       }
 
-      const updated = await tx.resourceMember.update({
+      const promoted = await tx.resourceMember.update({
+        where: {id: member.id},
+        data: { role: 'OWNER'},
+        include: WITH_EMAIL  
+      }
+      );
+
+      return toView(promoted);
+    })
+  } 
+
+    async demote(resourceId: string, userId: string): Promise<MemberView> {
+    return this.prisma.$transaction(async (tx) => {
+      const member = await this.lockAndFind(tx, resourceId, userId);
+
+      // Already a member: nothing to change, and a retried request still succeeds.
+      if (member.role === 'MEMBER') {
+        const current = await tx.resourceMember.findUniqueOrThrow({
+          where: { id: member.id },
+          include: WITH_EMAIL,
+        });
+        return toView(current);
+      }
+
+      // Counted while holding the lock, so it can't change before the update.
+      await this.assertNotLastOwner(tx, resourceId);
+
+      const demoted = await tx.resourceMember.update({
         where: { id: member.id },
-        data: { role },
+        data: { role: 'MEMBER' },
         include: WITH_EMAIL,
       });
-      return toView(updated);
+      return toView(demoted);
     });
+  }
+
+
+  private async lockAndFind(tx: Prisma.TransactionClient, resourceId: string, userId: string): Promise<ResourceMember> {
+
+    // prisma khong co lock row nen raw query, row locking takes effect the moment
+    // this FOR UPDATE query chay
+    await tx.$queryRaw`SELECT id FROM "Resource" WHERE id = ${resourceId} FOR UPDATE`;
+
+    const member = await tx.resourceMember.findUnique({
+      where: { userId_resourceId: { userId, resourceId } },
+    });
+    if (!member) throw new NotFoundException('Member not found');
+    return member;
   }
 
   async remove(resourceId: string, userId: string): Promise<void> {
@@ -110,22 +176,6 @@ export class MembersService {
     });
   }
 
-  // Locks the resource row so role changes and removals on one resource run
-  // one at a time. Without it, two owners demoting each other at the same
-  // moment would both see two owners and both succeed, leaving zero.
-  private async lockAndFind(
-    tx: Prisma.TransactionClient,
-    resourceId: string,
-    userId: string,
-  ): Promise<ResourceMember> {
-    await tx.$queryRaw`SELECT id FROM "Resource" WHERE id = ${resourceId} FOR UPDATE`;
-
-    const member = await tx.resourceMember.findUnique({
-      where: { userId_resourceId: { userId, resourceId } },
-    });
-    if (!member) throw new NotFoundException('Member not found');
-    return member;
-  }
 
   private async assertNotLastOwner(
     tx: Prisma.TransactionClient,

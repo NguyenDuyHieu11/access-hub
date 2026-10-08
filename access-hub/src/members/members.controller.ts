@@ -6,14 +6,12 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
 import { MinRole } from '../common/decorators/min-role.decorator.js';
 import { ResourceRoleGuard } from '../common/guards/resource-role.guard.js';
 import { AddMemberDTO } from './dto/add-member-dto.js';
-import { UpdateMemberDTO } from './dto/update-member-dto.js';
 import { MembersService, type MemberView } from './members.service.js';
 
 @Controller('resources/:resourceId/members')
@@ -35,14 +33,24 @@ export class MembersController {
     return this.membersService.add(resourceId, dto);
   }
 
-  @Patch(':userId')
+  @Post(':userId/promote')
   @MinRole('OWNER')
-  updateRole(
+  @HttpCode(HttpStatus.OK)
+  promote(
     @Param('resourceId') resourceId: string,
     @Param('userId') userId: string,
-    @Body() dto: UpdateMemberDTO,
   ): Promise<MemberView> {
-    return this.membersService.updateRole(resourceId, userId, dto.role);
+    return this.membersService.promote(resourceId, userId);
+  }
+
+  @Post(':userId/demote')
+  @MinRole('OWNER')
+  @HttpCode(HttpStatus.OK)
+  demote(
+    @Param('resourceId') resourceId: string,
+    @Param('userId') userId: string,
+  ): Promise<MemberView> {
+    return this.membersService.demote(resourceId, userId);
   }
 
   @Delete(':userId')
