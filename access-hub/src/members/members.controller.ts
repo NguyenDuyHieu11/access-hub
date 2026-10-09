@@ -13,6 +13,8 @@ import { MinRole } from '../common/decorators/min-role.decorator.js';
 import { ResourceRoleGuard } from '../common/guards/resource-role.guard.js';
 import { AddMemberDTO } from './dto/add-member-dto.js';
 import { MembersService, type MemberView } from './members.service.js';
+import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import type { AuthenticatedUser } from '../auth/types/authenticated-user.js';
 
 @Controller('resources/:resourceId/members')
 @UseGuards(ResourceRoleGuard)
@@ -39,8 +41,9 @@ export class MembersController {
   promote(
     @Param('resourceId') resourceId: string,
     @Param('userId') userId: string,
+    @CurrentUser() caller: AuthenticatedUser,
   ): Promise<MemberView> {
-    return this.membersService.promote(resourceId, userId);
+    return this.membersService.promote(resourceId, caller.id, userId);
   }
 
   @Post(':userId/demote')
@@ -49,8 +52,9 @@ export class MembersController {
   demote(
     @Param('resourceId') resourceId: string,
     @Param('userId') userId: string,
+    @CurrentUser() caller: AuthenticatedUser,
   ): Promise<MemberView> {
-    return this.membersService.demote(resourceId, userId);
+    return this.membersService.demote(resourceId, caller.id, userId);
   }
 
   @Delete(':userId')
@@ -59,7 +63,8 @@ export class MembersController {
   remove(
     @Param('resourceId') resourceId: string,
     @Param('userId') userId: string,
+    @CurrentUser() caller: AuthenticatedUser,
   ): Promise<void> {
-    return this.membersService.remove(resourceId, userId);
+    return this.membersService.remove(resourceId, caller.id, userId);
   }
 }
