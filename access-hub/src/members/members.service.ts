@@ -14,6 +14,7 @@ import { AddMemberDTO } from './dto/add-member-dto.js';
 import { ASYNC_METHOD_SUFFIX } from '@nestjs/common/module-utils/constants.js';
 import { CurrentMembership } from '../common/decorators/current-membership.decorator.js';
 import { hasAtLeast } from '../common/rank.js';
+import { lockResource } from '../common/lock-resource.js';
 
 export type MemberView = {
   userId: string;
@@ -154,19 +155,13 @@ export class MembersService {
   }
 
 
-  private async lockAndFind(tx: Prisma.TransactionClient, resourceId: string, callerId: string, userId: string): Promise<ResourceMember> {
-
-    // prisma khong co lock row nen raw query, row locking takes effect the moment
-    // this FOR UPDATE query chay
-    await tx.$queryRaw`SELECT id FROM "Resource" WHERE id = ${resourceId} FOR UPDATE`;
-
-    // unhappy case
-    const caller = await tx.resourceMember.findUnique({
-      where: { userId_resourceId: { userId: callerId, resourceId } },
-    })
-
-    if (!caller) throw new NotFoundException('resource not found or the role of this mfker has been changed before lockAndFind')
-    if (!hasAtLeast(caller.role, 'OWNER')) throw new ForbiddenException();
+  private async lockAndFind(
+    tx: Prisma.TransactionClient,
+    resourceId: string,
+    callerId: string,
+    userId: string,
+  ): Promise<ResourceMember> {
+    await lockResource(tx, resourceId, callerId, 'OWNER');
 
     const member = await tx.resourceMember.findUnique({
       where: { userId_resourceId: { userId, resourceId } },
@@ -175,12 +170,19 @@ export class MembersService {
     return member;
   }
 
+
   async remove(resourceId: string, callerId: string, userId: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const member = await this.lockAndFind(tx, resourceId, callerId, userId);
       if (member.role === 'OWNER') {
         await this.assertNotLastOwner(tx, resourceId);
       }
+
+      // revoke credential as well
+      await tx.credential.updateMany({
+        where: {resourceId, createdById: userId, revokedAt: null},
+        data: { revokedAt: new Date()} ,
+      })
 
       await tx.resourceMember.delete({ where: { id: member.id } });
     });
