@@ -14,6 +14,9 @@ import {
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { PRE_RECEIVE_HOOK } from './pre-receive-hook.js';
+import { ChildProcessWithoutNullStreams } from 'node:child_process';
+import {spawn} from 'node:child_process'
+
 
 const execFileAsync = promisify(execFile); // execFile execute file trong 1 newly spawn process
 
@@ -190,4 +193,26 @@ export class GitRepoService implements OnModuleInit {
     await chmod(tmpPath, 0o755);
     await rename(tmpPath, hookPath);
   }
+
+    // One git http-backend process per request. It reads the request from env vars (CGI).
+  spawnHttpBackend(
+    resourceId: string,
+    pathInfo: string,
+    cgiEnv: NodeJS.ProcessEnv,
+  ): ChildProcessWithoutNullStreams {
+    // Called for its check only: refuses ids that would point outside GIT_REPO_ROOT.
+    this.repoPath(resourceId);
+
+    return spawn('git', ['http-backend'], {
+      env: {
+        ...GIT_ENV,
+        ...cgiEnv,
+        GIT_PROJECT_ROOT: this.root,
+        // Without this, git only serves repos that contain a "git-daemon-export-ok" file.
+        GIT_HTTP_EXPORT_ALL: '1',
+        PATH_INFO: `/${resourceId}.git${pathInfo}`,
+      },
+    });
+  }
+
 }
